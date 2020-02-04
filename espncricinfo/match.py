@@ -1,5 +1,7 @@
 import json
+import pdb
 import requests
+import pandas as pd
 from bs4 import BeautifulSoup
 from espncricinfo.exceptions import MatchNotFoundError, NoScorecardError
 
@@ -108,7 +110,7 @@ class Match(object):
 
     def get_comms_json(self):
         try:
-            text = self.html.find_all('script')[13].get_text().replace("\n", " ").replace('window.__INITIAL_STATE__ =','').replace('&dagger;','wk').replace('&amp;','').replace('wkts;','wkts,').replace('wkt;','wkt,').strip().replace('};', "}};").split('};')[0]
+            text = self.html.find_all('script')[11].get_text().replace("\n", " ").replace('window.__INITIAL_STATE__ =','').replace('&dagger;','wk').replace('&amp;','').replace('wkts;','wkts,').replace('wkt;','wkt,').strip().replace('};', "}};").split('};')[0]
             return json.loads(text)
         except:
             return None
@@ -160,7 +162,8 @@ class Match(object):
 
     # live matches only
     def _current_summary(self):
-        return self.match_json().get('current_summary')
+        if 'current_summary' in self.match_json().keys():
+            return self.match_json()['current_summary']
 
     def _present_datetime_local(self):
         return self.match_json()['present_datetime_local']
@@ -181,7 +184,7 @@ class Match(object):
             return True
 
     def _rain_rule(self):
-        if self.match_json().get('rain_rule') == "1":
+        if self.match_json()['rain_rule'] == "1":
             return self.match_json()['rain_rule_name']
         else:
             return None
@@ -190,19 +193,19 @@ class Match(object):
         return self.match_json()['start_date_raw']
 
     def _continent(self):
-        return self.match_json().get('continent_name')
+        return self.match_json()['continent_name']
 
     def _town_area(self):
-        return self.match_json().get('town_area')
+        return self.match_json()['town_area']
 
     def _town_name(self):
-        return self.match_json().get('town_name')
+        return self.match_json()['town_name']
 
     def _town_id(self):
-        return self.match_json().get('town_id')
+        return self.match_json()['town_id']
 
     def _weather_location_code(self):
-        return self.match_json().get('weather_location_code')
+        return self.match_json()['weather_location_code']
 
     def _match_title(self):
         return self.match_json()['cms_match_title']
@@ -220,7 +223,7 @@ class Match(object):
         return self.match_json()['floodlit_name']
 
     def _followon(self):
-        if self.match_json().get('followon') == '1':
+        if self.match_json()['followon'] == '1':
             return True
         else:
             return False
@@ -256,7 +259,10 @@ class Match(object):
             return None
 
     def _latest_innings_fow(self):
-        return self.json['centre'].get('fow')
+        if 'fow' in self.json['centre'].keys():
+            return self.json['centre']['fow']
+        else:
+            return None
 
     def _team_1(self):
         return self.json['team'][0]
@@ -268,31 +274,22 @@ class Match(object):
         return self._team_1()['team_abbreviation']
 
     def _team_1_players(self):
-        return self._team_1().get('player', [])
-        
+        return self._team_1()['player']
+
     def _team_1_innings(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return [inn for inn in self.json['innings'] if inn['batting_team_id'] == self._team_1_id()][0]
+        return [inn for inn in self.json['innings'] if inn['batting_team_id'] == self._team_1_id()][0]
 
     def _team_1_run_rate(self):
-        if self.json['innings'] == []:
+        if self._team_1_innings()['run_rate'] == None:
             return None
         else:
             return float(self._team_1_innings()['run_rate'])
 
     def _team_1_overs_batted(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return float(self._team_1_innings()['overs'])
+        return float(self._team_1_innings()['overs'])
 
     def _team_1_batting_result(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return self._team_1_innings()['event_name']
+        return self._team_1_innings()['event_name']
 
     def _team_2(self):
         return self.json['team'][1]
@@ -304,31 +301,22 @@ class Match(object):
         return self._team_2()['team_abbreviation']
 
     def _team_2_players(self):
-        return self._team_2().get('player', [])
- 
+        return self._team_2()['player']
+
     def _team_2_innings(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return [inn for inn in self.json['innings'] if inn['batting_team_id'] == self._team_2_id()][0]
+        return [inn for inn in self.json['innings'] if inn['batting_team_id'] == self._team_2_id()][0]
 
     def _team_2_run_rate(self):
-        if self.json['innings'] == []:
+        if self._team_2_innings()['run_rate'] == None:
             return None
         else:
             return float(self._team_2_innings()['run_rate'])
 
     def _team_2_overs_batted(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return float(self._team_2_innings()['overs'])
+        return float(self._team_2_innings()['overs'])
 
     def _team_2_batting_result(self):
-        if self.json['innings'] == []:
-            return None
-        else:
-            return self._team_2_innings()['event_name']
+        return self._team_2_innings()['event_name']
 
     def _home_team(self):
         if self._team_1_id() == self.match_json()['home_team_id']:
@@ -457,6 +445,170 @@ class Match(object):
             return self.comms_json['gamePackage']['statistics']['pshipByInnings'][int(innings)-1]['data']
         else:
             return None
+
+    def flatten(js):
+        return pd.DataFrame(js).set_index(['text','name']).squeeze()
+
+    def url_to_id(url):
+        i_d = url.split('/')[-1].split('.')[0]
+        return i_d
+
+    def get_overs_in_match(self):
+        x1 = Match(self.match_id).html
+        x2 = json.loads(x1.find_all('script')[13].get_text().replace("\n", " ").replace('window.__INITIAL_STATE__ =','').replace('&dagger;','wk').replace('&amp;','').replace('wkts;','wkts,').replace('wkt;','wkt,').strip().replace('};', "}};").split('};')[0])
+        try:
+            temp = x2['gamePackage']['scorecard']['innings']['1']['total']
+            inn1overs = float(temp.split('(')[1].split(' ')[0])
+        except:
+            inn1overs = 0
+            pass
+
+        try:
+            temp = x2['gamePackage']['scorecard']['innings']['2']['total']
+            inn2overs = float(temp.split('(')[1].split(' ')[0])
+        except:
+            inn2overs = 0
+            pass
+
+        try:
+            temp = x2['gamePackage']['scorecard']['innings']['3']['total']
+            inn3overs = float(temp.split('(')[1].split(' ')[0])
+        except:
+            inn3overs = 0
+            pass
+
+        try:
+            temp = x2['gamePackage']['scorecard']['innings']['4']['total']
+            inn4overs = float(temp.split('(')[1].split(' ')[0])
+        except:
+            inn4overs = 0
+            pass
+
+        totalovers = inn1overs + inn2overs + inn3overs + inn4overs
+
+        return totalovers
+
+    def get_batcards(self):
+        df = pd.DataFrame()
+        x1 = Match(self.match_id).html
+        x2 = json.loads(x1.find_all('script')[13].get_text().replace("\n", " ").replace('window.__INITIAL_STATE__ =','').replace('&dagger;','wk').replace('&amp;','').replace('wkts;','wkts,').replace('wkt;','wkt,').strip().replace('};', "}};").split('};')[0])
+        try:
+            df1bat = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['1']['batsmen'])
+            d1title = x2['gamePackage']['scorecard']['innings']['1']['title']
+            df1bat['Team'] = d1title.split(' ')[0]
+            inn1_bat = pd.concat([df1bat.drop(['captain','commentary', 'stats','hasVideoId','trackingName'], axis=1), df1bat.stats.apply(Match.flatten)], axis=1)
+            inn1_bat['PlayerID'] = inn1_bat['href'].apply(lambda x: Match.url_to_id(x))
+            inn1_bat = inn1_bat.drop(['href'], axis=1)
+            inn1_bat.columns =  ['fullname','not_out','name','role','runningOver','runningScore','how_out','team','runs','balls','minutes','fours','sixes','sr','id']
+            inn1_bat = inn1_bat[['id','fullname','name','runs','how_out','balls','minutes','fours','sixes','sr','runningOver','runningScore','team','not_out']]
+            inn1_bat = inn1_bat.to_dict(orient='records')
+        except:
+            inn1_bat = None
+            pass
+
+        try:
+            df2bat = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['2']['batsmen'])
+            d2title = x2['gamePackage']['scorecard']['innings']['2']['title']
+            df2bat['Team'] = d2title.split(' ')[0]
+            inn2_bat = pd.concat([df2bat.drop(['captain','commentary', 'stats','hasVideoId','trackingName'], axis=1), df2bat.stats.apply(Match.flatten)], axis=1)
+            inn2_bat['PlayerID'] = inn2_bat['href'].apply(lambda x: Match.url_to_id(x))
+            inn2_bat = inn2_bat.drop(['href'], axis=1)
+            inn2_bat.columns =  ['fullname','not_out','name','role','runningOver','runningScore','how_out','team','runs','balls','minutes','fours','sixes','sr','id']
+            inn2_bat = inn2_bat[['id','fullname','name','runs','how_out','balls','minutes','fours','sixes','sr','runningOver','runningScore','team','not_out']]
+            inn2_bat = inn2_bat.to_dict(orient='records')
+        except:
+            inn2_bat = None
+            pass
+
+        try:
+            df3bat = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['3']['batsmen'])
+            d3title = x2['gamePackage']['scorecard']['innings']['3']['title']
+            df3bat['Team'] = d3title.split(' ')[0]
+            inn3_bat = pd.concat([df3bat.drop(['captain','commentary', 'stats','hasVideoId','trackingName'], axis=1), df3bat.stats.apply(Match.flatten)], axis=1)
+            inn3_bat['PlayerID'] = inn3_bat['href'].apply(lambda x: Match.url_to_id(x))
+            inn3_bat = inn3_bat.drop(['href'], axis=1)
+            inn3_bat.columns =  ['fullname','not_out','name','role','runningOver','runningScore','how_out','team','runs','balls','minutes','fours','sixes','sr','id']
+            inn3_bat = inn3_bat[['id','fullname','name','runs','how_out','balls','minutes','fours','sixes','sr','runningOver','runningScore','team','not_out']]
+            inn3_bat = inn3_bat.to_dict(orient='records')
+        except:
+            inn3_bat = None
+            pass
+
+        try:
+            df4bat = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['4']['batsmen'])
+            d4title = x2['gamePackage']['scorecard']['innings']['4']['title']
+            df4bat['Team'] = d4title.split(' ')[0]
+            inn4_bat = pd.concat([df4bat.drop(['captain','commentary', 'stats','hasVideoId','trackingName'], axis=1), df4bat.stats.apply(Match.flatten)], axis=1)
+            inn4_bat['PlayerID'] = inn4_bat['href'].apply(lambda x: Match.url_to_id(x))
+            inn4_bat = inn4_bat.drop(['href'], axis=1)
+            inn4_bat.columns = ['fullname','not_out','name','role','runningOver','runningScore','how_out','team','runs','balls','minutes','fours','sixes','sr','id']
+            inn4_bat = inn4_bat[['id','fullname','name','runs','how_out','balls','minutes','fours','sixes','sr','runningOver','runningScore','team','not_out']]
+            inn4_bat = inn4_bat.to_dict(orient='records')
+        except:
+            inn4_bat = None
+            pass
+        
+        return(inn1_bat, inn2_bat, inn3_bat, inn4_bat)
+
+    def get_bowlcards(self):
+        df = pd.DataFrame()
+        x1 = Match(self.match_id).html
+        x2 = json.loads(x1.find_all('script')[13].get_text().replace("\n", " ").replace('window.__INITIAL_STATE__ =','').replace('&dagger;','wk').replace('&amp;','').replace('wkts;','wkts,').replace('wkt;','wkt,').strip().replace('};', "}};").split('};')[0])
+        try:
+            df1bowl = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['1']['bowlers'])
+            d1title = x2['gamePackage']['scorecard']['innings']['1']['title']
+            inn1_bowl = pd.concat([df1bowl.drop(['captain','stats','hasVideoId','trackingName'], axis=1),df1bowl.stats.apply(Match.flatten)], axis=1)
+            inn1_bowl['PlayerID'] = inn1_bowl['href'].apply(lambda x: Match.url_to_id(x))
+            inn1_bowl = inn1_bowl.drop(['href'], axis=1)
+            inn1_bowl.columns = ['fullname','name','role','overs','maidens','runs','wickets','economy','wides','nballs','id']
+            inn1_bowl = inn1_bowl[['id','fullname','name','overs','maidens','runs','wickets','economy','wides','nballs','role']]
+            inn1_bowl = inn1_bowl.to_dict(orient='records')
+        except:
+            inn1_bowl = None
+            pass
+
+        try:
+            df2bowl = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['2']['bowlers'])
+            d2title = x2['gamePackage']['scorecard']['innings']['2']['title']
+            inn2_bowl = pd.concat([df2bowl.drop(['captain','stats','hasVideoId','trackingName'], axis=1),df2bowl.stats.apply(Match.flatten)], axis=1)
+            inn2_bowl['PlayerID'] = inn2_bowl['href'].apply(lambda x: Match.url_to_id(x))
+            inn2_bowl = inn2_bowl.drop(['href'], axis=1)
+            inn2_bowl.columns = ['fullname','name','role','overs','maidens','runs','wickets','economy','wides','nballs','id']
+            inn2_bowl = inn2_bowl[['id','fullname','name','overs','maidens','runs','wickets','economy','wides','nballs','role']]
+            inn2_bowl = inn2_bowl.to_dict(orient='records')
+        except:
+            inn2_bowl = None
+            pass
+
+        try:
+            df3bowl = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['3']['bowlers'])
+            d3title = x2['gamePackage']['scorecard']['innings']['3']['title']
+            inn3_bowl = pd.concat([df3bowl.drop(['captain','stats','hasVideoId','trackingName'], axis=1),df3bowl.stats.apply(Match.flatten)], axis=1)
+            inn3_bowl['PlayerID'] = inn3_bowl['href'].apply(lambda x: Match.url_to_id(x))
+            inn3_bowl = inn3_bowl.drop(['href'], axis=1)
+            inn3_bowl.columns = ['fullname','name','role','overs','maidens','runs','wickets','economy','wides','nballs','id']
+            inn3_bowl = inn3_bowl[['id','fullname','name','overs','maidens','runs','wickets','economy','wides','nballs','role']]
+            inn3_bowl = inn3_bowl.to_dict(orient='records')
+        except:
+            inn3_bowl = None
+            pass
+
+        try:
+            df4bowl = pd.DataFrame(x2['gamePackage']['scorecard']['innings']['4']['bowlers'])
+            d4title = x2['gamePackage']['scorecard']['innings']['4']['title']
+            inn4_bowl = pd.concat([df4bowl.drop(['captain','stats','hasVideoId','trackingName'], axis=1),df4bowl.stats.apply(Match.flatten)], axis=1)
+            inn4_bowl['PlayerID'] = inn4_bowl['href'].apply(lambda x: Match.url_to_id(x))
+            inn4_bowl = inn4_bowl.drop(['href'], axis=1)
+            inn4_bowl.columns = ['fullname','name','role','overs','maidens','runs','wickets','economy','wides','nballs','id']
+            inn4_bowl = inn4_bowl[['id','fullname','name','overs','maidens','runs','wickets','economy','wides','nballs','role']]
+            inn4_bowl = inn4_bowl.to_dict(orient='records')
+        except:
+            inn4_bowl = None
+            pass
+
+        return(inn1_bowl, inn2_bowl, inn3_bowl, inn4_bowl)
+
+
 
     @staticmethod
     def get_recent_matches(date=None):
